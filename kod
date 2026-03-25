@@ -1,1 +1,764 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TRAJEKT</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
 
+  :root {
+    --bg: #080c0f;
+    --panel: #0d1318;
+    --border: #1a2830;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --accent3: #f5c842;
+    --text: #c8dde8;
+    --muted: #3a5566;
+    --grid: rgba(0,229,255,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,12,15,0.95);
+    backdrop-filter: blur(8px);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 18px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(0,229,255,0.5);
+  }
+
+  .logo span { color: var(--accent2); }
+
+  .status-pill {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    transition: all 0.3s;
+  }
+  .status-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,229,255,0.2);
+    animation: pulse-pill 2s infinite;
+  }
+  .status-pill.tracking {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    box-shadow: 0 0 12px rgba(245,200,66,0.2);
+  }
+
+  @keyframes pulse-pill {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .camera-section {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: #000;
+    overflow: hidden;
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  canvas#overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* Corner brackets */
+  .corner {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .corner::before, .corner::after {
+    content: '';
+    position: absolute;
+    background: var(--accent);
+    opacity: 0.8;
+  }
+  .corner.tl { top: 12px; left: 12px; }
+  .corner.tr { top: 12px; right: 12px; }
+  .corner.bl { bottom: 12px; left: 12px; }
+  .corner.br { bottom: 12px; right: 12px; }
+  .corner.tl::before { width: 100%; height: 2px; top: 0; left: 0; }
+  .corner.tl::after  { width: 2px; height: 100%; top: 0; left: 0; }
+  .corner.tr::before { width: 100%; height: 2px; top: 0; right: 0; }
+  .corner.tr::after  { width: 2px; height: 100%; top: 0; right: 0; }
+  .corner.bl::before { width: 100%; height: 2px; bottom: 0; left: 0; }
+  .corner.bl::after  { width: 2px; height: 100%; bottom: 0; left: 0; }
+  .corner.br::before { width: 100%; height: 2px; bottom: 0; right: 0; }
+  .corner.br::after  { width: 2px; height: 100%; bottom: 0; right: 0; }
+
+  /* Crosshair */
+  .crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px; height: 40px;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.3;
+  }
+  .crosshair::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 1px;
+    background: var(--accent);
+    transform: translateY(-50%);
+  }
+  .crosshair::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 0; bottom: 0;
+    width: 1px;
+    background: var(--accent);
+    transform: translateX(-50%);
+  }
+
+  /* Color picker overlay */
+  #pickOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    cursor: crosshair;
+    background: rgba(0,0,0,0.45);
+    align-items: center;
+    justify-content: center;
+  }
+  #pickOverlay.active { display: flex; }
+  .pick-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    padding: 12px 20px;
+    border: 1px solid var(--accent);
+    background: rgba(0,0,0,0.8);
+    border-radius: 2px;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  /* Data panel */
+  .data-panel {
+    flex-shrink: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+  }
+
+  .data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .data-cell {
+    background: rgba(0,229,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 8px 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .data-cell::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .data-cell.updated::before { opacity: 1; }
+
+  .data-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .data-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--accent);
+    display: block;
+    line-height: 1;
+  }
+  .data-value.warn { color: var(--accent2); }
+  .data-value.neutral { color: var(--text); }
+  .data-unit {
+    font-size: 9px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+
+  /* Landing prediction */
+  .landing-bar {
+    background: rgba(0,229,255,0.03);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent3);
+    border-radius: 0 2px 2px 0;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .landing-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .landing-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--accent3);
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-appearance: none;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,255,0.06);
+  }
+  .btn.primary:active { background: rgba(0,229,255,0.15); }
+  .btn.danger {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(255,61,113,0.06);
+  }
+  .btn.warn-btn {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    background: rgba(245,200,66,0.06);
+  }
+
+  /* Color swatch */
+  .color-swatch {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+    background: #888;
+  }
+
+  .no-signal {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 3;
+  }
+  .no-signal-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+  }
+
+  canvas#hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TRAJE<span>KT</span></div>
+  <div class="status-pill" id="statusPill">OFFLINE</div>
+</header>
+
+<div class="camera-section">
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+  <div class="crosshair"></div>
+
+  <div class="no-signal" id="noSignal">
+    <div class="no-signal-text">// BRAK SYGNAŁU KAMERY</div>
+    <button class="btn primary" onclick="startCamera()" style="flex:none;padding:10px 24px">URUCHOM KAMERĘ</button>
+  </div>
+
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+  <canvas id="hidden"></canvas>
+
+  <div id="pickOverlay">
+    <div class="pick-label">DOTKNIJ OBIEKTU<br>KTÓRY CHCESZ ŚLEDZIĆ</div>
+  </div>
+</div>
+
+<div class="data-panel">
+  <div class="data-grid">
+    <div class="data-cell" id="cellSpeed">
+      <span class="data-label">Prędkość</span>
+      <span class="data-value neutral" id="valSpeed">—<span class="data-unit">px/s</span></span>
+    </div>
+    <div class="data-cell" id="cellAccel">
+      <span class="data-label">Przyspieszenie</span>
+      <span class="data-value neutral" id="valAccel">—<span class="data-unit">px/s²</span></span>
+    </div>
+    <div class="data-cell" id="cellPos">
+      <span class="data-label">Pozycja XY</span>
+      <span class="data-value neutral" id="valPos">—</span>
+    </div>
+  </div>
+
+  <div class="landing-bar">
+    <span class="landing-label">⬡ Przewidywane lądowanie</span>
+    <span class="landing-value" id="valLanding">BRAK DANYCH</span>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="btnPick" onclick="startPick()" disabled>
+      <span class="color-swatch" id="swatchDisplay"></span>WYBIERZ KOLOR
+    </button>
+    <button class="btn warn-btn" id="btnClear" onclick="clearTrack()">WYCZYŚĆ</button>
+    <button class="btn danger" id="btnStop" onclick="stopCamera()" disabled>STOP</button>
+  </div>
+</div>
+
+<script>
+const video    = document.getElementById('video');
+const overlay  = document.getElementById('overlay');
+const hidden   = document.getElementById('hidden');
+const ctx      = overlay.getContext('2d');
+const hctx     = hidden.getContext('2d', { willReadFrequently: true });
+const pickOverlay = document.getElementById('pickOverlay');
+const statusPill  = document.getElementById('statusPill');
+const noSignal    = document.getElementById('noSignal');
+const swatchDisplay = document.getElementById('swatchDisplay');
+
+let stream = null;
+let picking = false;
+let targetHSV = null;
+let targetColor = null;
+let tracking = false;
+let trail = [];
+let prevPos = null;
+let prevTime = null;
+let prevSpeed = null;
+let animFrame = null;
+const MAX_TRAIL = 90;
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      resizeCanvases();
+      noSignal.style.display = 'none';
+      statusPill.textContent = 'LIVE';
+      statusPill.className = 'status-pill active';
+      document.getElementById('btnPick').disabled = false;
+      document.getElementById('btnStop').disabled = false;
+      loop();
+    };
+  } catch(e) {
+    alert('Brak dostępu do kamery. Sprawdź uprawnienia w Safari.');
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (animFrame) cancelAnimationFrame(animFrame);
+  video.srcObject = null;
+  noSignal.style.display = 'flex';
+  statusPill.textContent = 'OFFLINE';
+  statusPill.className = 'status-pill';
+  document.getElementById('btnPick').disabled = true;
+  document.getElementById('btnStop').disabled = true;
+  clearTrack();
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+}
+
+function resizeCanvases() {
+  overlay.width  = video.videoWidth  || overlay.offsetWidth;
+  overlay.height = video.videoHeight || overlay.offsetHeight;
+  hidden.width   = overlay.width;
+  hidden.height  = overlay.height;
+}
+
+window.addEventListener('resize', () => { if (stream) resizeCanvases(); });
+
+// ─── Color picking ─────────────────────────────────────────────────────────────
+function startPick() {
+  picking = true;
+  pickOverlay.classList.add('active');
+}
+
+pickOverlay.addEventListener('click', e => {
+  if (!picking) return;
+  const rect = pickOverlay.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  const px = Math.floor(x * hidden.width);
+  const py = Math.floor(y * hidden.height);
+  hctx.drawImage(video, 0, 0, hidden.width, hidden.height);
+  const d = hctx.getImageData(px, py, 1, 1).data;
+  targetColor = [d[0], d[1], d[2]];
+  targetHSV = rgbToHsv(d[0], d[1], d[2]);
+  swatchDisplay.style.background = `rgb(${d[0]},${d[1]},${d[2]})`;
+  picking = false;
+  tracking = true;
+  trail = [];
+  statusPill.textContent = 'TRACKING';
+  statusPill.className = 'status-pill tracking';
+  pickOverlay.classList.remove('active');
+});
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+  let h, s = max === 0 ? 0 : d / max, v = max;
+  if (max === min) { h = 0; }
+  else {
+    switch(max) {
+      case r: h = ((g-b)/d + (g<b?6:0)) / 6; break;
+      case g: h = ((b-r)/d + 2) / 6; break;
+      case b: h = ((r-g)/d + 4) / 6; break;
+    }
+  }
+  return [h, s, v];
+}
+
+function hsvDistance(hsv1, hsv2) {
+  const dh = Math.min(Math.abs(hsv1[0]-hsv2[0]), 1-Math.abs(hsv1[0]-hsv2[0]));
+  const ds = Math.abs(hsv1[1]-hsv2[1]);
+  const dv = Math.abs(hsv1[2]-hsv2[2]);
+  return dh * 2 + ds * 0.5 + dv * 0.3;
+}
+
+// ─── Detection ─────────────────────────────────────────────────────────────────
+const SAMPLE = 12; // sample every Nth pixel for performance
+
+function detectObject() {
+  hctx.drawImage(video, 0, 0, hidden.width, hidden.height);
+  const data = hctx.getImageData(0, 0, hidden.width, hidden.height).data;
+  let sumX = 0, sumY = 0, count = 0;
+  const threshold = 0.28;
+
+  for (let y = 0; y < hidden.height; y += SAMPLE) {
+    for (let x = 0; x < hidden.width; x += SAMPLE) {
+      const i = (y * hidden.width + x) * 4;
+      const hsv = rgbToHsv(data[i], data[i+1], data[i+2]);
+      if (hsvDistance(hsv, targetHSV) < threshold) {
+        sumX += x; sumY += y; count++;
+      }
+    }
+  }
+
+  if (count < 4) return null;
+  return { x: sumX / count, y: sumY / count, area: count };
+}
+
+// ─── Trajectory prediction ─────────────────────────────────────────────────────
+function predictLanding() {
+  if (trail.length < 6) return null;
+  const recent = trail.slice(-12);
+  // Fit parabola via least squares
+  const n = recent.length;
+  let sx=0, sy=0, sx2=0, sx3=0, sx4=0, sxy=0, sx2y=0;
+  for (const p of recent) {
+    const x=p.x, y=p.y;
+    sx+=x; sy+=y; sx2+=x*x; sx3+=x*x*x; sx4+=x*x*x*x;
+    sxy+=x*y; sx2y+=x*x*y;
+  }
+  const A = [[n,sx,sx2],[sx,sx2,sx3],[sx2,sx3,sx4]];
+  const B = [sy,sxy,sx2y];
+  const coeffs = solve3(A, B);
+  if (!coeffs) return null;
+  const [c, b, a] = coeffs;
+  // Find x where y = canvas height (ground)
+  const target = hidden.height * 0.95;
+  // a*x^2 + b*x + c = target => a*x^2 + b*x + (c - target) = 0
+  const disc = b*b - 4*a*(c - target);
+  if (disc < 0 || Math.abs(a) < 1e-8) return null;
+  const x1 = (-b + Math.sqrt(disc)) / (2*a);
+  const x2 = (-b - Math.sqrt(disc)) / (2*a);
+  const lastX = recent[recent.length-1].x;
+  const landing = Math.abs(x1 - lastX) < Math.abs(x2 - lastX) ? x1 : x2;
+  return { x: landing, y: target, coeffs, minX: recent[0].x, maxX: landing };
+}
+
+function solve3(A, B) {
+  // Cramer's rule
+  const det = d => d[0][0]*(d[1][1]*d[2][2]-d[1][2]*d[2][1]) - d[0][1]*(d[1][0]*d[2][2]-d[1][2]*d[2][0]) + d[0][2]*(d[1][0]*d[2][1]-d[1][1]*d[2][0]);
+  const D = det(A);
+  if (Math.abs(D) < 1e-10) return null;
+  const sub = (col, v) => A.map((r,i) => r.map((c,j) => j===col ? v[i] : c));
+  return [det(sub(0,B))/D, det(sub(1,B))/D, det(sub(2,B))/D];
+}
+
+// ─── HUD drawing ───────────────────────────────────────────────────────────────
+function drawHUD(pos, speed, accel, prediction) {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  // Draw trail
+  if (trail.length > 1) {
+    for (let i = 1; i < trail.length; i++) {
+      const alpha = (i / trail.length) * 0.9;
+      const t = trail[i], pt = trail[i-1];
+      ctx.strokeStyle = `rgba(0,229,255,${alpha})`;
+      ctx.lineWidth = alpha * 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pt.x, pt.y);
+      ctx.lineTo(t.x, t.y);
+      ctx.stroke();
+
+      // Dots
+      if (i % 6 === 0) {
+        ctx.fillStyle = `rgba(0,229,255,${alpha * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 2, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Draw predicted parabola
+  if (prediction) {
+    const [c, b, a] = prediction.coeffs;
+    ctx.strokeStyle = 'rgba(245,200,66,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    const steps = 60;
+    const dx = (prediction.maxX - prediction.minX) / steps;
+    for (let i = 0; i <= steps; i++) {
+      const x = prediction.minX + i * dx;
+      const y = a*x*x + b*x + c;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Landing marker
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = 2;
+    const lx = prediction.x, ly = prediction.y;
+    ctx.beginPath();
+    ctx.moveTo(lx-12, ly); ctx.lineTo(lx+12, ly);
+    ctx.moveTo(lx, ly-12); ctx.lineTo(lx, ly+12);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(245,200,66,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 18, 0, Math.PI*2);
+    ctx.stroke();
+  }
+
+  if (!pos) return;
+
+  // Detection circle
+  ctx.strokeStyle = targetColor ? `rgb(${targetColor[0]},${targetColor[1]},${targetColor[2]})` : '#00e5ff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, 22, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Outer ring
+  ctx.strokeStyle = 'rgba(0,229,255,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, 32, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Center dot
+  ctx.fillStyle = '#00e5ff';
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crosshair lines from object
+  ctx.strokeStyle = 'rgba(0,229,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  ctx.moveTo(0, pos.y); ctx.lineTo(overlay.width, pos.y);
+  ctx.moveTo(pos.x, 0); ctx.lineTo(pos.x, overlay.height);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ─── Data panel update ─────────────────────────────────────────────────────────
+function flash(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('updated');
+  void el.offsetWidth;
+  el.classList.add('updated');
+  setTimeout(() => el.classList.remove('updated'), 500);
+}
+
+function updatePanel(pos, speed, accel, prediction) {
+  const vSpeed = document.getElementById('valSpeed');
+  const vAccel = document.getElementById('valAccel');
+  const vPos   = document.getElementById('valPos');
+  const vLand  = document.getElementById('valLanding');
+
+  if (pos) {
+    vPos.className = 'data-value neutral';
+    vPos.innerHTML = `${Math.round(pos.x)}<span style="color:var(--muted)">:</span>${Math.round(pos.y)}`;
+
+    if (speed !== null) {
+      vSpeed.className = speed > 300 ? 'data-value warn' : 'data-value';
+      vSpeed.innerHTML = `${Math.round(speed)}<span class="data-unit">px/s</span>`;
+      flash('cellSpeed');
+    }
+    if (accel !== null) {
+      vAccel.className = Math.abs(accel) > 200 ? 'data-value warn' : 'data-value';
+      vAccel.innerHTML = `${accel >= 0 ? '+' : ''}${Math.round(accel)}<span class="data-unit">px/s²</span>`;
+      flash('cellAccel');
+    }
+    if (prediction) {
+      const px = Math.round(prediction.x / hidden.width * 100);
+      vLand.textContent = `X: ${Math.round(prediction.x)}px  (${px}% szerokości)`;
+    } else {
+      vLand.textContent = trail.length < 6 ? 'ZBIERANIE DANYCH...' : 'TRAJEKTORIA LINIOWA';
+    }
+  } else {
+    vSpeed.innerHTML = `—<span class="data-unit">px/s</span>`;
+    vAccel.innerHTML = `—<span class="data-unit">px/s²</span>`;
+    vPos.innerHTML = `—`;
+    vSpeed.className = vAccel.className = vPos.className = 'data-value neutral';
+    vLand.textContent = 'BRAK SYGNAŁU';
+  }
+}
+
+// ─── Main loop ─────────────────────────────────────────────────────────────────
+function loop() {
+  if (!stream) return;
+  animFrame = requestAnimationFrame(loop);
+
+  if (!tracking || !targetHSV) {
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    return;
+  }
+
+  const pos = detectObject();
+  const now = performance.now();
+  let speed = null, accel = null;
+
+  if (pos) {
+    if (prevPos && prevTime) {
+      const dt = (now - prevTime) / 1000;
+      if (dt > 0) {
+        const dx = pos.x - prevPos.x, dy = pos.y - prevPos.y;
+        speed = Math.sqrt(dx*dx + dy*dy) / dt;
+        if (prevSpeed !== null) accel = (speed - prevSpeed) / dt;
+        prevSpeed = speed;
+      }
+    }
+    trail.push({ x: pos.x, y: pos.y, t: now });
+    if (trail.length > MAX_TRAIL) trail.shift();
+    prevPos = pos; prevTime = now;
+  } else {
+    prevSpeed = null;
+  }
+
+  const prediction = predictLanding();
+  drawHUD(pos, speed, accel, prediction);
+  updatePanel(pos, speed, accel, prediction);
+}
+
+// ─── Controls ──────────────────────────────────────────────────────────────────
+function clearTrack() {
+  trail = [];
+  prevPos = null; prevTime = null; prevSpeed = null;
+  tracking = false;
+  targetHSV = null; targetColor = null;
+  swatchDisplay.style.background = '#888';
+  updatePanel(null, null, null, null);
+  if (stream) {
+    statusPill.textContent = 'LIVE';
+    statusPill.className = 'status-pill active';
+  }
+}
+</script>
+</body>
+</html>
